@@ -494,10 +494,9 @@
   doesn't call `d/transact!` or `ldb/transact!`."
   [{:keys [db-after tx-meta _tx-data] :as tx-report}]
   (or
-   (when-not (or (:sync-download-graph? tx-meta)
-                 (:reverse? tx-meta)
-                 (:transact-remote? tx-meta))
-     (ensure-journal-page-protected-attrs-not-updated! tx-report)
+   (when-not (:sync-download-graph? tx-meta)
+     (when-not (:rtc-tx? tx-meta)
+       (ensure-journal-page-protected-attrs-not-updated! tx-report))
      (let [extra-tx-data (compute-extra-tx-data tx-report)
            tx-report* (if (seq extra-tx-data)
                         (let [result (d/with db-after extra-tx-data)]

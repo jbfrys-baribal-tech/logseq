@@ -307,13 +307,11 @@
                                          {:drop-missing-retract-ops? (= outliner-op :fix)})]
     (if (seq tx-data)
       (try
-        (ldb/transact! conn tx-data (cond-> {:op :apply-client-tx}
+        (ldb/transact! conn tx-data (cond-> {:op :apply-client-tx
+                                             :skip-validate-db? true}
                                       outliner-op (assoc :outliner-op outliner-op)))
         true
         (catch :default e
-          ;; Rebase/fix txs are inferred from local history and can become stale
-          ;; when concurrent remote edits remove referenced entities before upload.
-          ;; Treat stale :entity-id/missing rebases/fixes as no-op so sync can continue.
           (if (and (contains? #{:rebase :fix} outliner-op)
                    (= :entity-id/missing (:error (ex-data e))))
             (do

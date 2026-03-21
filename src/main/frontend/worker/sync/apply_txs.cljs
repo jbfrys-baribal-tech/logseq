@@ -410,7 +410,9 @@
                                        :t-before local-tx
                                        :txs payload}))
                           (p/catch (fn [error]
-                                     (js/console.error error)))))))))))))))
+                                     (shared-service/broadcast-to-clients!
+                                      :notification
+                                      [[(str "Sync push failed: " (ex-message error))] :error]))))))))))))))))
 
 (defn enqueue-flush-pending!
   [repo client]
@@ -903,6 +905,9 @@
                       :remote-txs remote-txs
                       :local-txs local-txs
                       :error error})
+          (shared-service/broadcast-to-clients!
+           :notification
+           [[(str "Sync failed: " (ex-message error))] :error])
           (throw error)))
 
       (when-let [*inflight (:inflight client)]

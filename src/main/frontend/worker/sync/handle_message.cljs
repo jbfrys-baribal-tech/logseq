@@ -168,6 +168,17 @@
             (sync-log-state/rtc-log :rtc.log/checksum-mismatch mismatch-data)
             (log/warn :db-sync/checksum-mismatch mismatch-data)))))))
 
+(defn- handle-server-error!
+  [repo client message]
+  (let [error-msg (or (:message message) "unknown server error")]
+    (js/console.error "[sync] server error response" error-msg)
+    (log/error :db-sync/server-error {:repo repo :error error-msg})
+    (when-let [inflight (:inflight client)]
+      (reset! inflight []))
+    (shared-service/broadcast-to-clients!
+     :notification
+     [[(str "Sync server error: " error-msg)] :warning])))
+
 (defn- handle-tx-reject!
   [repo client message local-tx]
   (let [reason (:reason message)
@@ -187,7 +198,11 @@
       (require-uuid failed-tx-id {:repo repo :type "tx/reject" :field :failed-tx-id}))
     (case reason
       "stale"
-      (request-pull! client local-tx)
+      (do
+        (when-let [inflight (:inflight client)]
+          (reset! inflight []))
+        (when (and (:ws client) (ws-open? (:ws client)))
+          (send! (:ws client) {:type "pull" :since local-tx})))
 
       (let [inflight @(:inflight client)
             inflight-set (set inflight)
@@ -360,4 +375,4 @@
   (require-non-negative remote-tx {:repo repo :type "changed"})
   (broadcast-rtc-state! client)
   (when (< local-tx remote-tx)
-    (request-pull! client local-tx)))
+    (send! (:ws client) {:type "pull" :since local-tx})))
