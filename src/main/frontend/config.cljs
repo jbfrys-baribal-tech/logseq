@@ -52,16 +52,13 @@
 
 (defonce default-db-sync-ws-url
   (if db-sync-local?
-    "ws://127.0.0.1:8787/sync/%s"
-    ;; "wss://api-staging.logseq.io/sync/%s"
+    "wss://logseq.jbfrys.fr/sync/%s"
     "wss://api.logseq.io/sync/%s"))
 
 (defonce default-db-sync-http-base
   (if db-sync-local?
-    "http://127.0.0.1:8787"
-    ;; "https://api-staging.logseq.io"
-    "https://api.logseq.io"
-    ))
+    "https://logseq.jbfrys.fr"
+    "https://api.logseq.io"))
 
 (defn get-custom-sync-server-url
   "Read the user-configured custom sync server URL from localStorage.

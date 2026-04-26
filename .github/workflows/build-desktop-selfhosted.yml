@@ -1,0 +1,155 @@
+name: Build Desktop (Self-Hosted Sync) – Linux AppImage
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version-suffix:
+        description: 'Version suffix appended to the app version (e.g. selfhost)'
+        required: false
+        default: 'selfhost'
+
+env:
+  CLOJURE_VERSION: '1.12.4.1618'
+  NODE_VERSION: '24'
+  JAVA_VERSION: '21'
+  PNPM_VERSION: '10.33.0'
+
+jobs:
+  # ─── Step 1: Compile ClojureScript ───────────────────────────────────────────
+  compile-cljs:
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.ref.outputs.version }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory path
+        id: pnpm-store-dir-path
+        run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+
+      - name: Set up Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Cache Clojure deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+
+      - name: Set up Clojure CLI
+        uses: DeLaGuardo/setup-clojure@13.5
+        with:
+          cli: ${{ env.CLOJURE_VERSION }}
+
+      - name: Compute version
+        id: ref
+        run: |
+          base=$(node ./scripts/get-pkg-version.js "non-release")
+          suffix="${{ github.event.inputs.version-suffix || 'selfhost' }}"
+          echo "version=${base}-${suffix}" >> $GITHUB_OUTPUT
+
+      - name: Install JS dependencies & compile CLJS
+        run: pnpm install --frozen-lockfile && gulp build && pnpm cljs:release-electron && pnpm webpack-app-build
+        env:
+          # Use production Cognito (us-east-1_dtagLnju8 / 69cs1lgme7p8kbgld8n5kseii6)
+          ENABLE_FILE_SYNC_PRODUCTION: 'true'
+          # Point sync URLs to self-hosted VPS (logseq.jbfrys.fr via config.cljs)
+          ENABLE_DB_SYNC_LOCAL: 'true'
+
+      - name: Stamp version into static/package.json
+        run: |
+          sed -i 's/"version": "0.0.1"/"version": "${{ steps.ref.outputs.version }}"/g' package.json
+        working-directory: ./static
+
+      - name: Write VERSION file
+        run: echo "${{ steps.ref.outputs.version }}" > ./static/VERSION
+
+      - name: Upload compiled static assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: static
+          path: static
+          retention-days: 1
+
+  # ─── Step 2: Build Linux x64 AppImage ────────────────────────────────────────
+  build-linux-appimage:
+    runs-on: ubuntu-22.04
+    needs: compile-cljs
+
+    steps:
+      - name: Check out repository (for electron package.json / Makefile)
+        uses: actions/checkout@v4
+
+      - name: Download compiled static assets
+        uses: actions/download-artifact@v4
+        with:
+          name: static
+          path: static
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install system deps for Electron builder
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            rpm fakeroot dpkg libarchive-tools \
+            libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xauth xvfb
+
+      - name: Install JS dependencies (electron static/)
+        run: pnpm install --frozen-lockfile
+        working-directory: ./static
+
+      - name: Build Electron AppImage
+        run: pnpm electron:make
+        working-directory: ./static
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p builds
+          cp static/VERSION builds/VERSION
+          mv static/dist/*.AppImage builds/
+          shopt -s nullglob
+          for f in static/dist/*.blockmap; do mv "$f" builds/; done
+          for f in static/dist/latest-linux.yml; do mv "$f" builds/; done
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: logseq-linux-selfhosted-${{ needs.compile-cljs.outputs.version }}
+          path: builds/
+          retention-days: 30
