@@ -235,7 +235,7 @@
                          (log/error :db-sync/handle-message-failed {:repo repo :error e})
                          (shared-service/broadcast-to-clients!
                           :notification
-                          [[(str "Sync error: " (ex-message e))] :error])))))
+                          [[(str "Sync error: " (ex-message e))] :error]))))))
   (set! (.-onerror ws) (fn [error] (log/error :db-sync/ws-error error)))
   (set! (.-onclose ws)
         (fn [_]
