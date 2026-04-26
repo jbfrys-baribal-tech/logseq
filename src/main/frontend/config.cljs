@@ -20,12 +20,26 @@
 (defonce revision REVISION)
 
 (goog-define ENABLE-FILE-SYNC-PRODUCTION false)
+(goog-define ENABLE-DB-SYNC-LOCAL false)
+(defonce db-sync-local? ENABLE-DB-SYNC-LOCAL)
 
 ;; this is a feature flag to enable the account tab
 ;; when it launches (when pro plan launches) it should be removed
 (def ENABLE-SETTINGS-ACCOUNT-TAB false)
 
-(if ENABLE-FILE-SYNC-PRODUCTION
+(cond
+  ENABLE-DB-SYNC-LOCAL
+  (do (def API-DOMAIN "logseq.jbfrys.fr")
+      (def COGNITO-IDP "https://cognito-idp.eu-north-1.amazonaws.com/")
+      (def COGNITO-CLIENT-ID "266av3tnvhevaiihmnerojbjkp")
+      (def REGION "eu-north-1")
+      (def USER-POOL-ID "eu-north-1_C0IEcPV3q")
+      (def IDENTITY-POOL-ID "")
+      ;; Set your Cognito hosted-UI domain here (App integration → Domain in your User Pool)
+      (def OAUTH-DOMAIN "TODO_your-pool-domain.auth.eu-north-1.amazoncognito.com")
+      (def PUBLISH-API-BASE "https://logseq.jbfrys.fr"))
+
+  ENABLE-FILE-SYNC-PRODUCTION
   (do (def API-DOMAIN "api.logseq.com")
       (def COGNITO-IDP "https://cognito-idp.us-east-1.amazonaws.com/")
       (def COGNITO-CLIENT-ID "69cs1lgme7p8kbgld8n5kseii6")
@@ -35,6 +49,7 @@
       (def OAUTH-DOMAIN "logseq-prod.auth.us-east-1.amazoncognito.com")
       (def PUBLISH-API-BASE "https://logseq.io"))
 
+  :else
   (do (def API-DOMAIN "api-dev.logseq.com")
       (def COGNITO-IDP "https://cognito-idp.us-east-2.amazonaws.com/")
       (def COGNITO-CLIENT-ID "1qi1uijg8b6ra70nejvbptis0q")
@@ -43,12 +58,6 @@
       (def IDENTITY-POOL-ID "us-east-2:cc7d2ad3-84d0-4faf-98fe-628f6b52c0a5")
       (def OAUTH-DOMAIN "logseq-test2.auth.us-east-2.amazoncognito.com")
       (def PUBLISH-API-BASE "https://logseq-publish-staging.logseq.workers.dev")))
-
-;; Enable for local development
-;; (def PUBLISH-API-BASE "http://localhost:8787")
-
-(goog-define ENABLE-DB-SYNC-LOCAL false)
-(defonce db-sync-local? ENABLE-DB-SYNC-LOCAL)
 
 (defonce default-db-sync-ws-url
   (if db-sync-local?

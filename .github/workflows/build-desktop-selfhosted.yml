@@ -78,9 +78,8 @@ jobs:
       - name: Install JS dependencies & compile CLJS
         run: pnpm install --frozen-lockfile && gulp build && pnpm cljs:release-electron && pnpm webpack-app-build
         env:
-          # Use production Cognito (us-east-1_dtagLnju8 / 69cs1lgme7p8kbgld8n5kseii6)
-          ENABLE_FILE_SYNC_PRODUCTION: 'true'
-          # Point sync URLs to self-hosted VPS (logseq.jbfrys.fr via config.cljs)
+          # ENABLE_DB_SYNC_LOCAL=true activates the self-hosted Cognito branch in config.cljs
+          # (eu-north-1_C0IEcPV3q / 266av3tnvhevaiihmnerojbjkp) and points sync to logseq.jbfrys.fr
           ENABLE_DB_SYNC_LOCAL: 'true'
 
       - name: Stamp version into static/package.json
