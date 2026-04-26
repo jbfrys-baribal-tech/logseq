@@ -412,7 +412,7 @@
                           (p/catch (fn [error]
                                      (shared-service/broadcast-to-clients!
                                       :notification
-                                      [[(str "Sync push failed: " (ex-message error))] :error]))))))))))))))))
+                                      [[(str "Sync push failed: " (ex-message error))] :error])))))))))))))))
 
 (defn enqueue-flush-pending!
   [repo client]
