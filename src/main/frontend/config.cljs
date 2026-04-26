@@ -35,8 +35,7 @@
       (def REGION "eu-north-1")
       (def USER-POOL-ID "eu-north-1_C0IEcPV3q")
       (def IDENTITY-POOL-ID "")
-      ;; Set your Cognito hosted-UI domain here (App integration → Domain in your User Pool)
-      (def OAUTH-DOMAIN "TODO_your-pool-domain.auth.eu-north-1.amazoncognito.com")
+      (def OAUTH-DOMAIN "eu-north-1c0iecpv3q.auth.eu-north-1.amazoncognito.com")
       (def PUBLISH-API-BASE "https://logseq.jbfrys.fr"))
 
   ENABLE-FILE-SYNC-PRODUCTION
